@@ -1,0 +1,188 @@
+temperature:
+  base_plot_setting:
+    title: Temperature
+    xlabel:
+      lead_time: Lead Hour (H)
+      issue_time: Issue Time (UTC)
+      valid_time: Valid Time (UTC)
+
+  metrics:
+    RMSE:
+      method: rmse
+
+    MAE:
+      method: mae
+
+    ACCURACY_1.7:
+      method: accuracy
+      threshold: 1.7
+
+    ERROR_5.6:
+      method: error
+      threshold: 5.6
+
+cloud:
+  base_plot_setting:
+    title: Cloud
+    xlabel:
+      lead_time: Lead Hour (H)
+      issue_time: Issue Time (UTC)
+      valid_time: Valid Time (UTC)
+
+  metrics:
+    RMSE:
+      method: rmse
+
+    ACCURACY_20:
+      method: accuracy
+      threshold: 20
+
+    ACCURACY_10:
+      method: accuracy
+      threshold: 10
+
+    ACCURACY_1_OFF:
+      method: accuracy_cloud_category
+      threshold: 1
+
+    ACCURACY_SAME:
+      method: accuracy_cloud_category
+      threshold: 0
+
+wind:
+  base_plot_setting:
+    title: wind
+    xlabel:
+      lead_time: Lead Hour (H)
+      issue_time: Issue Time (UTC)
+      valid_time: Valid Time (UTC)
+
+  metrics:
+    RMSE:
+      method: rmse
+
+    MAE:
+      method: mae
+
+    ACCURACY_1:
+      method: accuracy
+      threshold: 1
+
+    ERROR_3:
+      method: error
+      threshold: 3
+
+specific_humidity:
+  base_plot_setting:
+    title: specific_humidity
+    xlabel:
+      lead_time: Lead Hour (H)
+      issue_time: Issue Time (UTC)
+      valid_time: Valid Time (UTC)
+
+  metrics:
+    RMSE:
+      method: rmse
+
+    MAE:
+      method: mae
+
+precipitation:
+  base_plot_setting:
+    title: precipitation(mm)
+    xlabel:
+      lead_time: Lead Hour (H)
+      issue_time: Issue Time (UTC)
+      valid_time: Valid Time (UTC)
+
+  metrics:
+    RMSE:
+      method: rmse
+
+    ETS_0p1:
+      method: threat_score
+      threshold: 0.1
+      equitable: True
+
+    ETS_1:
+      method: threat_score
+      threshold: 1.0
+      equitable: True
+
+    Pod_50:
+      method: pod
+      threshold: 0.5
+
+    Far_50:
+      method: far
+      threshold: 0.5
+
+precipproba:
+  base_plot_setting:
+    title: precipitation probability(%)
+    xlabel:
+      lead_time: Lead Hour (H)
+      issue_time: Issue Time (UTC)
+      valid_time: Valid Time (UTC)
+
+  metrics:
+    Brier_Score:
+      method: brier
+
+    Occurrence_Frequency(%):
+      method: reliability
+      bins: [[0, 0.05], [0.05, 0.15], [0.15, 0.25], [0.25, 0.35], [0.35, 0.45], [0.45, 0.55], [0.55, 0.65], [0.65, 0.75], [0.75, 0.85], [0.85, 0.95], [0.95, 1]]
+      plot_setting:
+        xlabel:
+          lead_time: Bins of probability(%)
+
+    ETS_0.1:
+      method: threat_score
+      threshold: 0.1
+      equitable: True
+
+    ETS_0.35:
+      method: threat_score
+      threshold: 0.35
+      equitable: True
+
+    ETS_0.4:
+      method: threat_score
+      threshold: 0.4
+      equitable: True
+
+    ETS_0.5:
+      method: threat_score
+      threshold: 0.5
+      equitable: True
+
+    ETS_0.7:
+      method: threat_score
+      threshold: 0.7
+      equitable: True
+
+precip_binary:
+  base_plot_setting:
+    title: precipitation binary
+    xlabel:
+      lead_time: Lead Hour (H)
+      issue_time: Issue Time (UTC)
+      valid_time: Valid Time (UTC)
+
+  metrics:
+    ETS:
+      method: threat_score
+      threshold: 0.5
+      equitable: True
+
+    Pod:
+      method: pod
+      threshold: 0.5
+
+    Far:
+      method: far
+      threshold: 0.5
+
+    Accuracy:
+      method: accuracy
+      threshold: 0.1
