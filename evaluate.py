@@ -4,12 +4,12 @@ import logging
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
-import yaml
 import warnings
 
 import matplotlib.pyplot as plt
 import pandas as pd
 import xarray as xr
+import yaml
 
 from evaluation.forecast_reformat_catalog import reformat_filter_forecast
 from evaluation.obs_reformat_catalog import reformat_and_filter_obs, obs_to_verification
@@ -346,8 +346,8 @@ def parse_args(args: argparse.Namespace) -> Tuple[List[ForecastInfo], Any, Any, 
 
     metrics_settings_path = args.config_path if args.config_path is not None else os.path.join(
         os.path.dirname(os.path.abspath(__file__)), 'metric_config.yml')
-    with open(metrics_settings_path, 'r') as fs:
-        metrics_settings = yaml.safe_load(fs)  # pylint: disable=unspecified-encoding
+    with open(metrics_settings_path, 'r') as fs:  # pylint: disable=unspecified-encoding
+        metrics_settings = yaml.safe_load(fs)
 
     try:
         metrics_settings = metrics_settings[args.variable_type]
@@ -416,9 +416,9 @@ def main(args):
         logger.info("===================== start merge_forecast_obs =====================")
         merged_forecast = merge_forecast_obs(forecast, obs_ds)
 
-        for region_name in region_dict:
+        for region_name, region_data in region_dict.items():
             logger.info(f"===================== filter_by_region: {region_name} =====================")
-            filtered_forecast = filter_by_region(merged_forecast, region_name, region_dict[region_name])
+            filtered_forecast = filter_by_region(merged_forecast, region_name, region_data)
             if region_name != 'all':
                 logger.info(f"after filter_by_region: {region_name}; "
                             f"stations: {filtered_forecast.merge_data.station.size}")
