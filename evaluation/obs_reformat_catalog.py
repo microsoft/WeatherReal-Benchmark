@@ -88,7 +88,7 @@ def obs_to_verification(
             )
             obs_series[-1] = obs_series[-1].assign_coords(
                 **{issue_dim: [issue], lead_dim: obs_series[-1][lead_dim] - issue})
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             print(f'Failed to sel {issue} due to {e}')
             continue
     verification_ds = xr.concat(obs_series, dim=issue_dim)

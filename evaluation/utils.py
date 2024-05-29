@@ -18,9 +18,8 @@ def configure_logging(verbose=1):
         2: logging.DEBUG,
         3: logging.NOTSET
     }
-    if verbose not in verbose_levels.keys():
+    if verbose not in verbose_levels:
         verbose = 1
-    logger = logging.getLogger()
     logger.setLevel(verbose_levels[verbose])
     handler = logging.StreamHandler()
     handler.setFormatter(logging.Formatter(
@@ -65,7 +64,8 @@ def get_metric_multiple_stations(files):
                 key = os.path.basename(f).replace(".csv", "")
                 data[key] = [str(id) for id in pd.read_csv(f)['Station'].tolist()]
             except Exception:
-                raise Exception(f"Error opening {f}!")
+                logger.error(f"Error opening {f}!")
+                raise
         else:
             raise Warning(f'File {f} do not exist!')
     return data
