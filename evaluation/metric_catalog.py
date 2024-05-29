@@ -27,53 +27,52 @@ def get_metric_func(settings):
     name = settings['method']
     if name == 'rmse':
         return rmse
-    elif name == 'count':
+    if name == 'count':
         return count
-    elif name == 'mean_error':
+    if name == 'mean_error':
         return mean_error
-    elif name == 'mae':
+    if name == 'mae':
         return mae
-    elif name == 'sde':
+    if name == 'sde':
         return sde
-    elif name == 'min_record_error':
+    if name == 'min_record_error':
         return min_record_error
-    elif name == 'max_record_error':
+    if name == 'max_record_error':
         return max_record_error
-    elif name == 'step_function':
+    if name == 'step_function':
         th = settings['threshold']
         invert = settings.get('invert', False)
         return partial(step_function, threshold=th, invert=invert)
-    elif name == 'accuracy':
+    if name == 'accuracy':
         th = settings['threshold']
         return partial(accuracy, threshold=th)
-    elif name == 'error':
+    if name == 'error':
         th = settings['threshold']
         return partial(error, threshold=th)
-    elif name == 'f1_thresholded':
+    if name == 'f1_thresholded':
         th = settings.get('threshold', None)
         return partial(f1_thresholded, threshold=th)
-    elif name == 'f1_class_averaged':
+    if name == 'f1_class_averaged':
         return f1_class_averaged
-    elif name == 'threat_score':
+    if name == 'threat_score':
         th = settings.get('threshold', None)
         equitable = settings.get('equitable', False)
         return partial(ts_thresholded, threshold=th, equitable=equitable)
-    elif name == 'reliability':
+    if name == 'reliability':
         b = settings.get('bins', None)
         return partial(reliability, bins=b)
-    elif name == 'brier':
+    if name == 'brier':
         return mse
-    elif name == 'pod':
+    if name == 'pod':
         th = settings.get('threshold')
         return partial(pod, threshold=th)
-    elif name == 'far':
+    if name == 'far':
         th = settings.get('threshold')
         return partial(far, threshold=th)
-    elif name == 'csi':
+    if name == 'csi':
         th = settings.get('threshold')
         return partial(csi, threshold=th)
-    else:
-        raise ValueError(f'Unknown metric: {name}')
+    raise ValueError(f'Unknown metric: {name}')
 
 
 def rmse(data: xr.Dataset, group_dim: str) -> xr.DataArray:
@@ -114,16 +113,16 @@ def mean_error(data: xr.Dataset, group_dim: str) -> xr.DataArray:
 
 def mae(data: xr.Dataset, group_dim: str) -> xr.DataArray:
     src = abs(data['delta'])
-    mae = src.mean(_get_mean_dims(src, group_dim))
-    return mae.rename('metric')
+    src = src.mean(_get_mean_dims(src, group_dim))
+    return src.rename('metric')
 
 
 def sde(data: xr.Dataset, group_dim: str) -> xr.DataArray:
     src = data['delta']
     me_all = src.mean()
     src = pow((src-me_all), 2)
-    sde = src.mean(_get_mean_dims(src, group_dim))
-    return np.sqrt(sde).rename('metric')
+    src = src.mean(_get_mean_dims(src, group_dim))
+    return np.sqrt(src).rename('metric')
 
 
 def min_record_error(data: xr.Dataset, group_dim: str) -> xr.DataArray:
@@ -140,7 +139,7 @@ def max_record_error(data: xr.Dataset, group_dim: str) -> xr.DataArray:
 
 def step_function(data: xr.Dataset, group_dim: str, threshold: float, invert: bool) -> xr.DataArray:
     src = abs(data['delta']) < threshold
-    cnt = count(data)
+    cnt = count(data, group_dim)
 
     # Weight the average to ignore missing data
     r = src.sum(_get_mean_dims(src, group_dim))
@@ -163,7 +162,7 @@ def _true_positives_and_false_negatives(data, labels):
     neither prediction nor truth is NaN.
     """
     r_list = []
-    for n, label in enumerate(labels):
+    for label in labels:
         recall_filter = xr.where(np.logical_and(~np.isnan(data['fc']), data['obs'] == label), 1, np.nan)
         r_list.append((data['fc'] == label) * recall_filter)
     return xr.concat(r_list, dim='category').rename('metric')
@@ -175,7 +174,7 @@ def _true_positives_and_false_positives(data, labels):
     True and neither prediction nor truth is NaN.
     """
     p_list = []
-    for n, label in enumerate(labels):
+    for label in labels:
         precision_filter = xr.where(np.logical_and(~np.isnan(data['obs']), data['fc'] == label), 1, np.nan)
         p_list.append((data['obs'] == label) * precision_filter)
     return xr.concat(p_list, dim='category').rename('metric')
@@ -284,11 +283,9 @@ def reliability(data: xr.Dataset, group_dim: str, bins: list) -> xr.DataArray:
     truth = truth.where(truth == 1, 0)
     prediction = data['fc']
 
-    for b in range(len(bins)):
-        bin = bins[b]
-
+    for b, bin_ in enumerate(bins):
         # replace predicted prob with 0 / 1 for given range in bin
-        pred = prediction.where((prediction <= bin[1]) & (bin[0] < prediction), 0)
+        pred = prediction.where((prediction <= bin_[1]) & (bin_[0] < prediction), 0)
         # sum up to calculate mean later
         pred_sum = float(np.sum(pred))
         pred = pred.where(pred == 0, 1)
