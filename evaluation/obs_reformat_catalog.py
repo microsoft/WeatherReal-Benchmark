@@ -11,7 +11,7 @@ except ImportError:
     specific_humidity_from_dewpoint = None
     units = None
 
-from .forecast_reformat_catalog import get_interp_station_list
+from .utils import convert_to_binary
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,8 @@ def _convert_time_step(dt):  # pylint: disable=invalid-name
     return pd.Timedelta(hours=dt) if isinstance(dt, (float, int)) else pd.Timedelta(dt)
 
 
-def reformat_and_filter_obs(obs: xr.Dataset, obs_var_name: str, interp_station_path: str) -> xr.Dataset:
+def reformat_and_filter_obs(obs: xr.Dataset, obs_var_name: str, interp_station_path: Optional[str],
+                            precip_threshold: Optional[float] = None) -> xr.Dataset:
     """
     Reformat and filter the observation data, and return the DataFrame with required fields.
     Required fields: station, valid_time, obs
@@ -31,17 +32,21 @@ def reformat_and_filter_obs(obs: xr.Dataset, obs_var_name: str, interp_station_p
     obs: xarray Dataset: observation data
     obs_var_name: str: observation variable name
     interp_station_path: str: path to the interpolation station list
+    precip_threshold: float: threshold for precipitation
 
     Returns
     -------
     xr.Dataset: formatted observation data
     """
-    interp_station = get_interp_station_list(interp_station_path)
-    intersect_station = np.intersect1d(interp_station['station'].values, obs['station'].values)
-    logger.debug(f"intersect_station count: {len(intersect_station)}, \
-                 obs_station count: {len(obs['station'].values)}, \
-                 interp_station count: {len(interp_station['station'].values)}")
-    obs = obs.sel(station=intersect_station)
+    if interp_station_path is not None:
+        interp_station = get_interp_station_list(interp_station_path)
+        intersect_station = np.intersect1d(interp_station['station'].values, obs['station'].values)
+        logger.debug(f"intersect_station count: {len(intersect_station)}, \
+                     obs_station count: {len(obs['station'].values)}, \
+                     interp_station count: {len(interp_station['station'].values)}")
+        obs = obs.sel(station=intersect_station)
+    if 'valid_time' not in obs.dims:
+        obs = obs.rename({'time': 'valid_time'})
 
     if obs_var_name in ['u10', 'v10']:
         obs = calculate_u_v(obs, ws_name='ws', wd_name='wd', u_name='u10', v_name='v10')
@@ -49,7 +54,12 @@ def reformat_and_filter_obs(obs: xr.Dataset, obs_var_name: str, interp_station_p
         obs['q'] = xr.apply_ufunc(calculate_q, obs['td'])
     elif obs_var_name == 'pp':
         precip_var = 'ra' if 'ra' in obs.data_vars else 'ra1'
-        obs['pp'] = xr.where(obs[precip_var] >= 0.1, 1.0, 0.0)
+        logger.info(f"User requested precipitation probability from obs. Using variable '{precip_var}' with "
+                    f"threshold of 0.1 mm/hr.")
+        obs['pp'] = convert_to_binary(obs[precip_var], 0.1)
+
+    if precip_threshold is not None:
+        obs[obs_var_name] = convert_to_binary(obs[obs_var_name], precip_threshold)
 
     return obs[[obs_var_name]].rename({obs_var_name: 'obs'})
 
@@ -113,6 +123,21 @@ def calculate_u_v(data, ws_name='ws', wd_name='wd', u_name='u10', v_name='v10'):
     return data
 
 
-def convert_to_binary(x, threshold):
-    x = np.where(x >= threshold, 1.0, np.where(x < threshold, 0.0, x))
-    return x
+def get_interp_station_list(interp_station_path: str) -> pd.DataFrame:
+    """
+    Read the station metadata from the interpolation station list file, and return a dataset for interpolation.
+
+    Parameters
+    ----------
+    interp_station_path: str: path to the interpolation station list
+
+    Returns
+    -------
+    pd.DataFrame: station metadata with columns station, lat, lon
+    """
+    interp_station = pd.read_csv(interp_station_path)
+    interp_station = interp_station.rename({c: c.lower() for c in interp_station.columns}, axis=1)
+    interp_station['lon'] = interp_station['lon'].apply(lambda lon: lon if (lon < 180) else (lon - 360))
+    if 'station' not in interp_station.columns:
+        interp_station['station'] = interp_station['id']
+    return interp_station

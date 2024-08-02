@@ -11,8 +11,8 @@ import pandas as pd
 import xarray as xr
 import yaml
 
-from evaluation.forecast_reformat_catalog import reformat_filter_forecast
-from evaluation.obs_reformat_catalog import reformat_and_filter_obs, obs_to_verification
+from evaluation.forecast_reformat_catalog import reformat_forecast
+from evaluation.obs_reformat_catalog import get_interp_station_list, obs_to_verification, reformat_and_filter_obs
 from evaluation.metric_catalog import get_metric_func
 from evaluation.utils import configure_logging, get_metric_multiple_stations, generate_forecast_cache_path, \
     cache_reformat_forecast, load_reformat_forecast, ForecastData, ForecastInfo, MetricData, get_ideal_xticks
@@ -31,8 +31,7 @@ def intersect_all_forecast(forecast_list: List[ForecastData]) -> List[ForecastDa
     raise NotImplementedError("Forecast alignment is not yet implemented.")
 
 
-def get_forecast_data(forecast_info: ForecastInfo, start_lead: int, end_lead: int,
-                      convert_t: bool, cache_forecast: bool) -> ForecastData:
+def get_forecast_data(forecast_info: ForecastInfo, cache_forecast: bool) -> ForecastData:
     """
     Open all the forecasts from the forecast_info_list and reformat them.
 
@@ -40,12 +39,6 @@ def get_forecast_data(forecast_info: ForecastInfo, start_lead: int, end_lead: in
     ----------
     forecast_info: ForecastInfo
         The forecast information.
-    start_lead: int
-        The first lead time to include in the evaluation.
-    end_lead: int
-        The last lead time to include in the evaluation.
-    convert_t: bool
-        Convert temperature from Kelvin to Celsius.
     cache_forecast: bool
         If true, cache the reformat forecast data, next time will load from cache.
 
@@ -67,7 +60,7 @@ def get_forecast_data(forecast_info: ForecastInfo, start_lead: int, end_lead: in
             forecast = xr.open_zarr(info.path)
         else:
             forecast = xr.open_dataset(info.path, chunks={})
-        forecast_ds = reformat_filter_forecast(forecast, info, start_lead, end_lead, convert_t)
+        forecast_ds = reformat_forecast(forecast, info)
         if cache_forecast:
             cache_reformat_forecast(forecast_ds, cache_path)
             logger.info(f"save forecast file to cache: {cache_path}")
@@ -79,7 +72,8 @@ def get_forecast_data(forecast_info: ForecastInfo, start_lead: int, end_lead: in
 
 
 def get_observation_data(obs_base_path: str, obs_var_name: str, station_metadata_path: str,
-                         obs_file_type: str, obs_start_month: str, obs_end_month: str) -> xr.Dataset:
+                         obs_file_type: str, obs_start_month: str, obs_end_month: str,
+                         precip_threshold: Optional[float] = None) -> xr.Dataset:
     """
     Open the observation file and reformat it. Required fields: station, valid_time, obs_var_name.
 
@@ -97,6 +91,8 @@ def get_observation_data(obs_base_path: str, obs_var_name: str, station_metadata
         Obs start month, for multi-file netCDF data.
     obs_end_month: str
         Obs end month, for multi-file netCDF data.
+    precip_threshold: float, optional
+        Threshold for converting precipitation amount to binary. Default is no conversion.
 
     Returns
     -------
@@ -127,7 +123,7 @@ def get_observation_data(obs_base_path: str, obs_var_name: str, station_metadata
         else:
             obs = xr.open_dataset(obs_base_path, chunks={})
 
-    obs = reformat_and_filter_obs(obs, obs_var_name, station_metadata_path)
+    obs = reformat_and_filter_obs(obs, obs_var_name, station_metadata_path, precip_threshold)
     logger.debug(f"opened observation dataset: {obs}")
     return obs
 
@@ -323,7 +319,7 @@ def metrics_to_csv(
 
 
 def parse_args(args: argparse.Namespace) -> Tuple[List[ForecastInfo], Any, Any, Union[
-        Dict[str, List[Any]], Any], Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, bool, bool, bool]:
+        Dict[str, List[Any]], Any], Any, Any, Any, Any, Any, Any, Any, str, bool, bool, Optional[float]]:
     forecast_info_list = []
     forecast_name_list = args.forecast_names
     forecast_var_name_list = args.forecast_var_names
@@ -340,7 +336,16 @@ def parse_args(args: argparse.Namespace) -> Tuple[List[ForecastInfo], Any, Any, 
             file_type=args.forecast_file_types[index] if index < len(args.forecast_file_types) else None,
             station_metadata_path=station_metadata_path,
             interp_station_path=station_metadata_path,
-            output_directory=args.output_directory
+            output_directory=args.output_directory,
+            start_date=args.start_date,
+            end_date=args.end_date,
+            issue_time_freq=args.issue_time_freq,
+            start_lead=args.start_lead,
+            end_lead=args.end_lead,
+            convert_temperature=args.convert_fcst_temperature_k_to_c,
+            convert_pressure=args.convert_fcst_pressure_pa_to_hpa,
+            convert_cloud=args.convert_fcst_cloud_to_okta,
+            precip_proba_threshold=args.precip_proba_threshold_conversion,
         )
         forecast_info_list.append(forecast_info)
 
@@ -365,36 +370,41 @@ def parse_args(args: argparse.Namespace) -> Tuple[List[ForecastInfo], Any, Any, 
     else:
         region_dict = {}
     region_dict['all'] = []
-    group_dim = args.group_dim
-    obs_var_name = args.obs_var_name
-    obs_base_path = args.obs_path
-    obs_start_month = args.obs_start_month
-    obs_end_month = args.obs_end_month
-    output_dir = args.output_directory
-    start_lead = args.start_lead
-    end_lead = args.end_lead
 
     return (forecast_info_list, metrics_dict, base_plot_setting,
-            region_dict, group_dim, obs_var_name, obs_base_path, args.obs_file_type, obs_start_month,
-            obs_end_month, output_dir, start_lead, end_lead, station_metadata_path,
-            bool(args.convert_fcst_temperature_k_to_c), bool(args.cache_forecast), bool(args.align_forecasts))
+            region_dict, args.group_dim, args.obs_var_name, args.obs_path, args.obs_file_type,
+            args.obs_start_month, args.obs_end_month, args.output_directory, station_metadata_path,
+            bool(args.cache_forecast), bool(args.align_forecasts),
+            args.precip_proba_threshold_conversion)
 
 
 def main(args):
     logger.info("===================== parse args =====================")
     (forecast_info_list, metrics_dict, base_plot_setting, region_dict, group_dim, obs_var_name,
-     obs_base_path, obs_file_type, obs_start_month, obs_end_month, output_dir, start_lead, end_lead,
-     station_metadata_path, convert_t, cache_forecast, align_forecasts) = parse_args(args)
+     obs_base_path, obs_file_type, obs_start_month, obs_end_month, output_dir, station_metadata_path,
+     cache_forecast, align_forecasts, precip_threshold) = parse_args(args)
 
     logger.info("===================== start get_observation_data =====================")
     obs_ds = get_observation_data(obs_base_path, obs_var_name, station_metadata_path, obs_file_type, obs_start_month,
-                                  obs_end_month)
+                                  obs_end_month, precip_threshold=precip_threshold)
+
+    # Get metadata and set it on all the forecast info objects
+    if station_metadata_path is not None:
+        metadata = get_interp_station_list(station_metadata_path)
+    else:
+        try:
+            metadata = pd.DataFrame({'lat': obs_ds.lat.values, 'lon': obs_ds.lon.values,
+                                     'station': obs_ds.station.values})
+        except KeyError as exc:
+            raise ValueError("--station-metadata-path is required if lat/lon/station keys are not in the observation "
+                             "file") from exc
+    for forecast_info in forecast_info_list:
+        forecast_info.metadata = metadata
 
     if align_forecasts:
         # First load all forecasts, then compute and return metrics.
         logger.info("===================== start get_forecast_data =====================")
-        forecast_list = [get_forecast_data(fi, start_lead, end_lead, convert_t, cache_forecast)
-                         for fi in forecast_info_list]
+        forecast_list = [get_forecast_data(fi, cache_forecast) for fi in forecast_info_list]
         logger.info("===================== start intersect_all_forecast =====================")
         forecast_list = intersect_all_forecast(forecast_list)
     else:
@@ -411,7 +421,7 @@ def main(args):
                     f"=====================")
         if forecast is None:
             logger.info("===================== get_forecast_data =====================")
-            forecast = get_forecast_data(forecast_info, start_lead, end_lead, convert_t, cache_forecast)
+            forecast = get_forecast_data(forecast_info, cache_forecast)
 
         logger.info("===================== start merge_forecast_obs =====================")
         merged_forecast = merge_forecast_obs(forecast, obs_ds)
@@ -561,15 +571,33 @@ if __name__ == '__main__':
         help="A list of files containing station lists for evaluation in certain regions"
     )
     parser.add_argument(
+        "--start-date",
+        type=pd.Timestamp,
+        default=None,
+        help="First forecast issue time (as Timestamp) to include in evaluation"
+    )
+    parser.add_argument(
+        "--end-date",
+        type=pd.Timestamp,
+        default=None,
+        help="Last forecast issue time (as Timestamp) to include in evaluation"
+    )
+    parser.add_argument(
+        "--issue-time-freq",
+        type=str,
+        default=None,
+        help="Frequency of issue times (e.g., '1D') to include in evaluation. Default is None (all issue times)"
+    )
+    parser.add_argument(
         "--start-lead",
         type=int,
-        default=-1,
+        default=None,
         help="First lead time (in hours) to include in evaluation"
     )
     parser.add_argument(
         "--end-lead",
         type=int,
-        default=-1,
+        default=None,
         help="Last lead time (in hours) to include in evaluation"
     )
     parser.add_argument(
@@ -579,9 +607,26 @@ if __name__ == '__main__':
         help="Group dimension for metric computation, options: lead_time, issue_time, valid_time"
     )
     parser.add_argument(
+        "--precip-proba-threshold-conversion",
+        type=float,
+        default=None,
+        help="Convert observation and forecast fields from precipitation rate to probability of precipitation. Provide"
+             " a threshold in mm/hr to use as positive precipitation class. Use only for evaluating precipitation!"
+    )
+    parser.add_argument(
         "--convert-fcst-temperature-k-to-c",
         action='store_true',
         help="Convert forecast field from Kelvin to Celsius. Use only for evaluating temperature!"
+    )
+    parser.add_argument(
+        "--convert-fcst-pressure-pa-to-hpa",
+        action='store_true',
+        help="Convert forecast field from Pa to hPa. Use only for evaluating pressure!"
+    )
+    parser.add_argument(
+        "--convert-fcst-cloud-to-okta",
+        action='store_true',
+        help="Convert forecast field from cloud fraction to okta. Use only for evaluating cloud!"
     )
     parser.add_argument(
         "--cache-forecast",

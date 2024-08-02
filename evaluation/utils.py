@@ -39,6 +39,16 @@ class ForecastInfo:
     station_metadata_path: str
     interp_station_path: str
     output_directory: str
+    start_date: Optional[pd.Timestamp] = None
+    end_date: Optional[pd.Timestamp] = None
+    issue_time_freq: Optional[str] = None
+    start_lead: Optional[int] = None
+    end_lead: Optional[int] = None
+    convert_temperature: Optional[bool] = False
+    convert_pressure: Optional[bool] = False
+    convert_cloud: Optional[bool] = False
+    precip_proba_threshold: Optional[float] = None
+    metadata: Optional[pd.DataFrame] = None
     cache_path: Optional[str] = None
 
 
@@ -78,7 +88,7 @@ def generate_forecast_cache_path(info: ForecastInfo):
     forecast_name = info.forecast_name
     fc_var_name = info.fc_var_name
     reformat_func = info.reformat_func
-    interp_station = Path(info.interp_station_path).stem
+    interp_station = Path(info.interp_station_path).stem if info.interp_station_path is not None else 'default'
     cache_directory = os.path.join(info.output_directory, 'cache')
     os.makedirs(cache_directory, exist_ok=True)
     cache_file_name = "##".join([file_name, forecast_name, fc_var_name, reformat_func, interp_station, 'cache'])
@@ -107,3 +117,9 @@ def get_ideal_xticks(min_lead, max_lead, tick_count=8):
         tick_counts.append(abs(num_ticks - tick_count))
     best_interval = candidate_intervals[tick_counts.index(min(tick_counts))]
     return np.arange(min_lead, max_lead + best_interval, best_interval)
+
+
+def convert_to_binary(da, threshold):
+    result = xr.where(da >= threshold, np.float32(1.0), np.float32(0.0))
+    result = result.where(~np.isnan(da), np.nan)
+    return result

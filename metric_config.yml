@@ -33,21 +33,26 @@ cloud:
     RMSE:
       method: rmse
 
-    ACCURACY_20:
+    MAE:
+      method: mae
+
+    ACCURACY_2:
       method: accuracy
-      threshold: 20
+      threshold: 2
 
-    ACCURACY_10:
+    ERROR_5:
       method: accuracy
-      threshold: 10
+      threshold: 5
 
-    ACCURACY_1_OFF:
-      method: accuracy_cloud_category
-      threshold: 1
+    ETS_1p5:
+      method: threat_score
+      threshold: 1.5
+      equitable: True
 
-    ACCURACY_SAME:
-      method: accuracy_cloud_category
-      threshold: 0
+    ETS_6p5:
+      method: threat_score
+      threshold: 6.5
+      equitable: True
 
 wind:
   base_plot_setting:
@@ -109,15 +114,15 @@ precipitation:
       threshold: 1.0
       equitable: True
 
-    Pod_50:
+    POD_1:
       method: pod
-      threshold: 0.5
+      threshold: 1.0
 
-    Far_50:
+    FAR_1:
       method: far
-      threshold: 0.5
+      threshold: 1.0
 
-precipproba:
+precip_proba:
   base_plot_setting:
     title: precipitation probability(%)
     xlabel:
@@ -156,11 +161,6 @@ precipproba:
       threshold: 0.5
       equitable: True
 
-    ETS_0.7:
-      method: threat_score
-      threshold: 0.7
-      equitable: True
-
 precip_binary:
   base_plot_setting:
     title: precipitation binary
@@ -175,14 +175,37 @@ precip_binary:
       threshold: 0.5
       equitable: True
 
-    Pod:
+    POD:
       method: pod
       threshold: 0.5
 
-    Far:
+    FAR:
       method: far
       threshold: 0.5
 
     Accuracy:
       method: accuracy
       threshold: 0.1
+
+pressure:
+  base_plot_setting:
+    title: Mean sea-level pressure
+    xlabel:
+      lead_time: Lead Hour (H)
+      issue_time: Issue Time (UTC)
+      valid_time: Valid Time (UTC)
+
+  metrics:
+    RMSE:
+      method: rmse
+
+    MAE:
+      method: mae
+
+    ACCURACY_2:
+      method: accuracy
+      threshold: 2
+
+    ERROR_5:
+      method: error
+      threshold: 5
