@@ -152,13 +152,12 @@ def filter_by_region(forecast: ForecastData, region_name: str, station_list: Lis
     """
     if region_name == 'all':
         return forecast
-    else:
-        merge_data = forecast.merge_data
-        filtered_merge_data = ForecastData(
-            merge_data=merge_data.sel(station=merge_data.station.values.isin(station_list)),
-            info=forecast.info
-        )
-        return filtered_merge_data
+    merge_data = forecast.merge_data
+    filtered_merge_data = ForecastData(
+        merge_data=merge_data.sel(station=merge_data.station.values.isin(station_list)),
+        info=forecast.info
+    )
+    return filtered_merge_data
 
 
 def calculate_all_metrics(forecast_data: ForecastData, group_dim: str, metrics_params: Dict[str, Any]) \
@@ -352,19 +351,20 @@ def parse_args(args: argparse.Namespace) -> Tuple[List[ForecastInfo], Any, Any, 
 
     metrics_settings_path = args.config_path if args.config_path is not None else os.path.join(
         os.path.dirname(os.path.abspath(__file__)), 'metric_config.yml')
-    with open(metrics_settings_path, 'r') as fs:
+    with open(metrics_settings_path, 'r') as fs:  # pylint: disable=unspecified-encoding
         metrics_settings = yaml.safe_load(fs)
 
     try:
         metrics_settings = metrics_settings[args.variable_type]
-    except KeyError:
-        raise ValueError(f"Unknown variable type: {args.variable_type}. Check config file {metrics_settings_path}")
+    except KeyError as exc:
+        raise ValueError(f"Unknown variable type: {args.variable_type}. Check config file {metrics_settings_path}") \
+            from exc
     metrics_dict = metrics_settings['metrics']
     base_plot_setting = metrics_settings['base_plot_setting']
     if args.eval_region_files is not None:
         try:
             region_dict = get_metric_multiple_stations(','.join(args.eval_region_files))
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.info(f"get_metric_multiple_stations failed, use default region: all {e}")
             region_dict = {}
     else:
@@ -395,9 +395,9 @@ def main(args):
         try:
             metadata = pd.DataFrame({'lat': obs_ds.lat.values, 'lon': obs_ds.lon.values,
                                      'station': obs_ds.station.values})
-        except KeyError:
+        except KeyError as exc:
             raise ValueError("--station-metadata-path is required if lat/lon/station keys are not in the observation "
-                             "file")
+                             "file") from exc
     for forecast_info in forecast_info_list:
         forecast_info.metadata = metadata
 
@@ -411,7 +411,7 @@ def main(args):
         forecast_list = [None] * len(forecast_info_list)
 
     # For each forecast, compute all its metrics in every region.
-    metric_data = {r: [] for r in region_dict.keys()}
+    metric_data = {r: [] for r in region_dict}
     for forecast, forecast_info in zip(forecast_list, forecast_info_list):
         try:
             del merged_forecast  # noqa: F821
@@ -426,9 +426,9 @@ def main(args):
         logger.info("===================== start merge_forecast_obs =====================")
         merged_forecast = merge_forecast_obs(forecast, obs_ds)
 
-        for region_name in region_dict.keys():
+        for region_name, region_data in region_dict.items():
             logger.info(f"===================== filter_by_region: {region_name} =====================")
-            filtered_forecast = filter_by_region(merged_forecast, region_name, region_dict[region_name])
+            filtered_forecast = filter_by_region(merged_forecast, region_name, region_data)
             if region_name != 'all':
                 logger.info(f"after filter_by_region: {region_name}; "
                             f"stations: {filtered_forecast.merge_data.station.size}")
@@ -440,8 +440,8 @@ def main(args):
         forecast = None
 
     # Plot all metrics and save data
-    for region_name in region_dict.keys():
-        for metric_name in metrics_dict.keys():
+    for region_name in region_dict:
+        for metric_name in metrics_dict:
             logger.info(f"===================== plot_metric: {metric_name}, region: {region_name} "
                         f"=====================")
             plot_metric(merged_forecast, metric_data[region_name], group_dim, metric_name,

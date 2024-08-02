@@ -61,15 +61,15 @@ def update_unit_conversions(forecast: xr.Dataset, info: ForecastInfo):
             info.convert_temperature = False
             logger.info(f"Temperature conversion not needed for forecast {info.forecast_name}")
     if info.convert_pressure:
-        if any([u in unit.lower() for u in ['hpa', 'mb', 'millibar']]):
+        if any(u in unit.lower() for u in ['hpa', 'mb', 'millibar']):
             info.convert_pressure = False
             logger.info(f"Pressure conversion not needed for forecast {info.forecast_name}")
     if info.convert_cloud:
-        if any([u in unit.lower() for u in ['okta', '0-8']]):
+        if any(u in unit.lower() for u in ['okta', '0-8']):
             info.convert_cloud = False
             logger.info(f"Cloud cover conversion not needed for forecast {info.forecast_name}")
     if info.precip_proba_threshold is not None:
-        if not any([u in unit.lower() for u in ['mm', 'milli']]):
+        if not any(u in unit.lower() for u in ['mm', 'milli']):
             info.precip_proba_threshold /= 1e3
             logger.info(f"Probability thresholding not needed for forecast {info.forecast_name}")
 
@@ -88,7 +88,7 @@ def convert_cloud(forecast: xr.Dataset):
     xr.Dataset: converted forecast data
     """
     unit = forecast['fc'].attrs.get('units', '') or forecast['fc'].attrs.get('unit', '')
-    if any([u in unit.lower() for u in ['percent', '%', '100']]):
+    if any(u in unit.lower() for u in ['percent', '%', '100']):
         forecast['fc'] *= 8 / 100.
     else:
         forecast['fc'] *= 8
