@@ -31,6 +31,7 @@ to station locations, we can fairly evaluate models that produce either gridded 
 
 - A benchmark dataset of quality-controlled weather observations spanning the year 2023, with ongoing updates planned
 - An evaluation framework to score many tasks for either grid-based or point-based forecasts
+- Still in its infancy - we welcome feedback on how to improve the benchmark, the evaluation code, and the leaderboards
 
 ### What WeatherReal is not
 
@@ -69,52 +70,51 @@ reflects the end consumer experience with various forecasting models. We propose
 
 ## About the data
 
-WeatherReal includes several versions, all derived from global near-surface in-situ observations: (1) WeatherReal-
-ISD: An observational dataset based on Integrated Surface Database (ISD), which has been subjected to rigorous
-post-processing and quality control through our independently developed algorithms. (2) WeatherReal-Synoptic: An
-observational dataset from Synoptic, which is a one-stop data hub for 90,000+ surface weather stations. A quality
-control system is also provided as additional attributes delivered alongside the data from their API services. 
+WeatherReal includes several versions, all derived from global near-surface in-situ observations: 
+(1) WeatherReal-ISD: An observational dataset based on Integrated Surface Database (ISD), which has been subjected to rigorous post-processing and quality control through our independently developed algorithms. 
+(2) WeatherReal-Synoptic, An observational dataset from Synoptic Data PBC, a data service platform for 150,000+ in-situ surface weather stations, offering a much more densely distributed network. 
+A quality control system is also provided as additional attributes delivered alongside the data from their API services. 
 The following table lists available variables in WeatherReal-ISD and WeatherReal-Synoptic.
 
-| Variable                              | Short Name | Unit                       | Variable              | Short Name | Unit                     |
-|---------------------------------------|------------|----------------------------|-----------------------|------------|--------------------------|
-| 2m Temperature                        | t          | °C                         | Total Cloud Cover     | c          | okta<sup id="a3">3</sup> |
-| 2m Dewpoint Temperature               | td         | °C                         | 1-hour Precipitation  | ra1        | mm                       |
-| Surface Pressure<sup id="a1">1</sup>  | sp         | hPa                        | 3-hour Precipitation  | ra3        | mm                       |
-| Mean Sea-level Pressure               | msl        | hPa                        | 6-hour Precipitation  | ra6        | mm                       |
-| 10m Wind Speed                        | ws         | m/s                        | 12-hour Precipitation | ra12       | mm                       |
-| 10m Wind Direction                    | wd         | degree<sup id="a2">2</sup> | 24-hour Precipitation | ra24       | mm                       |
-**1**: For in-situ weather stations, surface pressure is measured at the sensor’s height, typically 2 meters above ground level at the weather station.
-**2**: The direction is measured clockwise from true north, ranging from 1° (north-northeast) to 360° (north), with 0° indicating calm winds.
-**3**: Okta is a unit of measurement used to describe the amount of cloud cover, with the data range being from 0 (clear sky) to 8 (completely overcast).
+| Variable                              | Short Name | Unit<sup id="a1">1</sup>        | Variable              | Short Name | Unit                     |
+|---------------------------------------|------------|---------------------------------|-----------------------|------------|--------------------------|
+| 2m Temperature                        | t          | °C                              | Total Cloud Cover     | c          | okta<sup id="a3">4</sup> |
+| 2m Dewpoint Temperature               | td         | °C                              | 1-hour Precipitation  | ra1        | mm                       |
+| Surface Pressure<sup id="a1">2</sup>  | sp         | hPa                             | 3-hour Precipitation  | ra3        | mm                       |
+| Mean Sea-level Pressure               | msl        | hPa                             | 6-hour Precipitation  | ra6        | mm                       |
+| 10m Wind Speed                        | ws         | m/s                             | 12-hour Precipitation | ra12       | mm                       |
+| 10m Wind Direction                    | wd         | degree<sup id="a2">3</sup>      | 24-hour Precipitation | ra24       | mm                       |
+
+**1**: Refers to the units used in the WeatherReal-ISD we publish. For the units provided by the raw ISD and Synoptic, please consult their respective documentation.
+**2**: For in-situ weather stations, surface pressure is measured at the sensor's height, typically 2 meters above ground level at the weather station.
+**3**: The direction is measured clockwise from true north, ranging from 1° (north-northeast) to 360° (north), with 0° indicating calm winds.
+**4**: Okta is a unit of measurement used to describe the amount of cloud cover, with the data range being from 0 (clear sky) to 8 (completely overcast).
 
 ### WeatherReal-ISD
 
-The data source of WeatherReal-ISD, ISD [Smith et al., 2011], is a global dataset compiled by the National Centers for
-Environmental Information (NCEI) comprising surface observations. More than 100 original data sources, including
-SYNOP and METAR weather reports, are incorporated.
-There are currently more than 14,000 active reporting stations in ISD and it already includes the majority of known
-station observation data, making it an ideal data source for WeatherReal. However, the observational data has only
-undergone basic quality control, resulting in numerous erroneous data points. Therefore, to improve data fidelity, we
-performed extensive post-processing on it, including station selection and merging and comprehensive quality control.
+The data source of WeatherReal-ISD, ISD [Smith et al., 2011], is a global near-surface observation dataset compiled by the National Centers for Environmental Information (NCEI). 
+More than 100 original data sources, including SYNOP (surface synoptic observations) and METAR (meteorological aerodrome report) weather reports, are incorporated.
+
+There are currently more than 14,000 active reporting stations in ISD and it already includes the majority of known station observation data, making it an ideal data source for WeatherReal. 
+However, the observational data have only undergone basic quality control, resulting in numerous erroneous data points. 
+Therefore, to improve data fidelity, we performed extensive post-processing on it, including station selection and merging, and comprehensive quality control.
 For more details on the data processing, please refer to the paper.
 
 ### WeatherReal-Synoptic
 
-> To add here: update info on Synoptic data
-
-When it comes to aggregating weather and environmental data, [Synoptic Data](https://synopticdata.com/) is the trusted leader. 
-They bring together data from multiple sources worldwide, providing a comprehensive and accessible hub for critical environmental information. 
-Data is accessed through their Weather API and Data Viewer products. 
-By providing access to data in one place, their products and services empower public, private, government, and academic users 
-with real-time and historical data, ensuring they can make informed decisions swiftly and confidently.
+Data of WeatherReal-Synoptic is obtained from Synoptic Data PBC, which brings together observation data from hundreds of public and private station networks worldwide, providing a comprehensive and accessible data service platform for critical environmental information. 
+For further details, please refer to [Synoptic Data’s official site](https://synopticdata.com/solutions/ai-ml-weather/). 
+The WeatherReal-Synoptic dataset utilized in this paper was retrieved in real-time from their Time Series API services in 2023 to address our operational requirements, and the same data is available from them as a historical dataset. 
+For precipitation, Synoptic also supports an advanced API that allows data retrieval through custom accumulation and interval windows. 
+WeatherReal-Synoptic encompasses a greater volume of data, a more extensive observation network, and a larger number of stations compared to ISD. 
+Note that Synoptic provides a quality control system as an additional attribute alongside the data from their API services, thus the quality control algorithm we developed independently has not been applied to the WeatherReal-Synoptic dataset.
 
 
 ## Acquiring data
 
 The WeatherReal datasets are available from the following locations:
-- WeatherReal-ISD: A single file in netCDF format for year 2023: [LFS link coming soon]
-- WeatherReal-Synoptic: Please reach out directly to [Synoptic Data](https://synopticdata.com/) for access to the data.
+- WeatherReal-ISD: A single file in netCDF format for year 2023: [GitHub LFS](https://github.com/microsoft/WeatherReal/blob/main/Data/WeatherReal-ISD-2023.nc)
+- WeatherReal-Synoptic: Please reach out directly to [Synoptic Data PBC](https://synopticdata.com/) for access to the data.
 
 
 ## Evaluation code
@@ -122,7 +122,7 @@ The WeatherReal datasets are available from the following locations:
 The evaluation code is written in Python and is available in the `evaluation` directory. The code is designed to be
 flexible and can be used to evaluate a wide range of forecast schemas. The launch script `evaluate.py` can be used to run
 the evaluation. The following example illustrates how to evaluate temperature forecasts from gridded and point-based models:
-    
+
 ```bash
 python evaluate.py \
   --forecast-paths /path/to/grid_forecast_1.zarr /path/to/grid_forecast_2.zarr /path/to/point_forecast_1.zarr \
