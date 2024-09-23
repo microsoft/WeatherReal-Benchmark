@@ -1,0 +1,189 @@
+############################################################
+# The flag values for the data quality check
+############################################################
+
+flag_error: 2
+flag_suspect: 1
+flag_normal: 0
+flag_missing: -1
+
+############################################################
+# The parameters for the data quality check
+############################################################
+
+# record extreme check
+record:
+  t:
+    upper: 57.8
+    lower: -89.2
+  td:
+    upper: 57.8
+    lower: -100.0
+  ws:
+    upper: 113.2
+    lower: 0
+  wd:
+    upper: 360
+    lower: 0
+  sp:
+    upper: 1100.0
+    lower: 300.0
+  msl:
+    upper: 1083.3
+    lower: 870.0
+  c:
+    upper: 8
+    lower: 0
+  ra1:
+    upper: 305.0
+    lower: 0
+  ra3:
+    upper: 915.0
+    lower: 0
+  ra6:
+    upper: 1144.0
+    lower: 0
+  ra12:
+    upper: 1144.0
+    lower: 0
+  ra24:
+    upper: 1825.0
+    lower: 0
+
+# Persistence check
+persistence:
+  defaults: &persistence_defaults
+    min_num: 24
+    max_window: 72
+    min_var: 0.1
+    error_length: 72
+  t:
+    <<: *persistence_defaults
+  td:
+    <<: *persistence_defaults
+  sp:
+    <<: *persistence_defaults
+  msl:
+    <<: *persistence_defaults
+  ws:
+    <<: *persistence_defaults
+    exclude_value: 0
+  wd:
+    <<: *persistence_defaults
+    exclude_value: 0
+  c:
+    <<: *persistence_defaults
+    exclude_value:
+      - 0
+      - 8
+  ra1:
+    <<: *persistence_defaults
+    exclude_value: 0
+  ra3:
+    <<: *persistence_defaults
+    exclude_value: 0
+  ra6:
+    <<: *persistence_defaults
+    exclude_value: 0
+  ra12:
+    <<: *persistence_defaults
+    exclude_value: 0
+  ra24:
+    <<: *persistence_defaults
+    exclude_value: 0
+
+# Spike check
+spike:
+  t:
+    max_change:
+      - 6
+      - 8
+      - 10
+  td:
+    max_change:
+      - 5
+      - 7
+      - 9
+  sp:
+    max_change:
+      - 3
+      - 5
+      - 7
+  msl:
+    max_change:
+      - 3
+      - 5
+      - 7
+
+# Distributional gap check with ERA5
+distribution:
+  defaults: &distribution_defaults
+    shift_step: 1
+    gap_scale: 2
+    default_mad: 1
+    suspect_std_scale: 2.72
+    min_num: 365
+  t:
+    <<: *distribution_defaults
+  td:
+    <<: *distribution_defaults
+  sp:
+    <<: *distribution_defaults
+    default_mad: 0.5
+  msl:
+    <<: *distribution_defaults
+    default_mad: 0.5
+
+# Cluster check
+cluster:
+  defaults: &cluster_defaults
+    min_samples_ratio: 0.1
+    eps_scale: 2
+    max_std_scale: 2
+    min_num: 365
+  t:
+    <<: *cluster_defaults
+    
+  td:
+    <<: *cluster_defaults
+  sp:
+    <<: *cluster_defaults
+  msl:
+    <<: *cluster_defaults
+
+# Neighbouring station check
+neighbouring:
+  defaults: &neighbouring_defaults
+    <<: *distribution_defaults
+    max_dist: 300
+    max_elev_diff: 500
+    min_data_overlap: 0.3
+  t:
+    <<: *neighbouring_defaults
+  td:
+    <<: *neighbouring_defaults
+  sp:
+    <<: *neighbouring_defaults
+    default_mad: 0.5
+  msl:
+    <<: *neighbouring_defaults
+    default_mad: 0.5
+
+# Flag refinement
+refinement:
+  t:
+    check_monotonic: true
+    check_ridge_trough: false
+  td:
+    check_monotonic: true
+    check_ridge_trough: false
+  sp:
+    check_monotonic: true
+    check_ridge_trough: true
+  msl:
+    check_monotonic: true
+    check_ridge_trough: true
+
+diurnal:
+  t:
+    max_bias: 0.5
