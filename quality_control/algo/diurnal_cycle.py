@@ -3,7 +3,10 @@ import pandas as pd
 import xarray as xr
 import bottleneck as bn
 from suntime import Sun, SunTimeException
-from .utils import CONFIG, intra_station_check
+from .utils import get_config, intra_station_check
+
+
+CONFIG = get_config()
 
 
 def _diurnal_cycle_check_daily(ts, lat, lon, date, max_bias):
@@ -84,8 +87,7 @@ def _diurnal_cycle_check(ts, flagged, lat, lon, dates, max_bias):
                 (flagged[idx+1: next_idx] == CONFIG["flag_suspect"]).any()
             ):
                 break
-            else:
-                end_idx = next_idx
+            end_idx = next_idx
         period_length = end_idx - start_idx + 1
         if period_length > 12:
             continue

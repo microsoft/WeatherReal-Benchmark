@@ -14,10 +14,11 @@ from algo import (
     diurnal_cycle,
     suspect_upgrade,
 )
-from algo.utils import merge_flags, configure_logging, CONFIG
+from algo.utils import merge_flags, Config, get_config, configure_logging
 
 
 logger = logging.getLogger(__name__)
+CONFIG = get_config()
 
 
 def load_data(obs_path, rnl_path):
@@ -35,7 +36,7 @@ def load_data(obs_path, rnl_path):
 
 
 def cross_variable_check(obs):
-    flag_cross = dict()
+    flag_cross = {}
     # Super-saturation check
     flag_cross["t"] = cross_variable.supersaturation(obs["t"], obs["td"])
     flag_cross["td"] = flag_cross["t"].copy()
@@ -53,8 +54,8 @@ def quality_control(obs, rnl, f_similarity):
     result = obs.copy()
 
     # Record extreme check
-    flag_extreme = dict()
-    for varname in CONFIG["record"].keys():
+    flag_extreme = {}
+    for varname in CONFIG["record"]:
         if varname not in varlist:
             continue
         logger.info(f"Record extreme check for {varname}...")
@@ -63,16 +64,16 @@ def quality_control(obs, rnl, f_similarity):
         result[varname] = result[varname].where(flag_extreme != CONFIG["flag_error"])
 
     # Cluster deviation check
-    flag_cluster = dict()
-    for varname in CONFIG["cluster"].keys():
+    flag_cluster = {}
+    for varname in CONFIG["cluster"]:
         if varname not in varlist:
             continue
         logger.info(f"Cluster deviation check for {varname}...")
         flag_cluster[varname] = cluster.run(result[varname], rnl[varname], varname)
 
     # Distributional gap check
-    flag_distribution = dict()
-    for varname in CONFIG["distribution"].keys():
+    flag_distribution = {}
+    for varname in CONFIG["distribution"]:
         if varname not in varlist:
             continue
         logger.info(f"Distributional gap check for {varname}...")
@@ -81,17 +82,17 @@ def quality_control(obs, rnl, f_similarity):
         flag_distribution[varname] = distributional_gap.run(result[varname], rnl[varname], varname, mask)
 
     # Neighbouring station check
-    flag_neighbour = dict()
-    for varname in CONFIG["neighbouring"].keys():
+    flag_neighbour = {}
+    for varname in CONFIG["neighbouring"]:
         if varname not in varlist:
             continue
         logger.info(f"Neighbouring station check for {varname}...")
         flag_neighbour[varname] = neighbouring_stations.run(result[varname], f_similarity, varname)
 
     # Spike check
-    flag_dis_neigh = dict()
-    flag_spike = dict()
-    for varname in CONFIG["spike"].keys():
+    flag_dis_neigh = {}
+    flag_spike = {}
+    for varname in CONFIG["spike"]:
         if varname not in varlist:
             continue
         logger.info(f"Spike check for {varname}...")
@@ -102,13 +103,13 @@ def quality_control(obs, rnl, f_similarity):
         flag_spike[varname] = spike.run(result[varname], flag_dis_neigh[varname], varname)
 
     # Persistence check
-    flag_persistence = dict()
-    for varname in CONFIG["persistence"].keys():
+    flag_persistence = {}
+    for varname in CONFIG["persistence"]:
         if varname not in varlist:
             continue
         logger.info(f"Persistence check for {varname}...")
         # Some variables are not checked by distributional gap or neighbouring station check
-        if varname not in flag_dis_neigh.keys():
+        if varname not in flag_dis_neigh:
             flag_dis_neigh_cur = xr.full_like(result[varname], CONFIG["flag_missing"], dtype=np.int8)
         else:
             flag_dis_neigh_cur = flag_dis_neigh[varname]
@@ -118,18 +119,18 @@ def quality_control(obs, rnl, f_similarity):
     flag_cross = cross_variable_check(result)
 
     # Merge all flags
-    flags = dict()
+    flags = {}
     for varname in varlist:
         logger.info(f"Merging flags for {varname}...")
         merge_list = [
             item[varname]
             for item in [flag_extreme, flag_dis_neigh, flag_spike, flag_persistence, flag_cross]
-            if varname in item.keys()
+            if varname in item
         ]
         flags[varname] = merge_flags(merge_list, priority=["normal", "suspect", "error"])
 
     # Flag refinement
-    flags_refined = dict()
+    flags_refined = {}
     for varname in varlist:
         if varname not in CONFIG["refinement"].keys():
             flags_refined[varname] = flags[varname].copy()
@@ -140,7 +141,7 @@ def quality_control(obs, rnl, f_similarity):
             flags_refined[varname] = diurnal_cycle.run(result[varname], flags_refined[varname])
 
     # Suspect upgrade
-    flags_upgraded = dict()
+    flags_upgraded = {}
     for varname in varlist:
         logger.info(f"Upgrade suspect flags for {varname}...")
         flags_upgraded[varname] = suspect_upgrade.run(flags_refined[varname], obs[varname])
@@ -167,7 +168,11 @@ if __name__ == "__main__":
     )
     parser.add_argument("--similarity-path", type=str, required=True, help="Data path of similarity matrix")
     parser.add_argument("--output-path", type=str, required=True, help="Data path of output data")
+    parser.add_argument(
+        "--config-path", type=str, help="Path to the configuration file, default is config.yaml in the algo directory"
+    )
     parser.add_argument("--verbose", type=int, default=1, help="Verbosity level (int >= 0)")
-    args = parser.parse_args()
-    configure_logging(args.verbose)
-    main(args)
+    parsed_args = parser.parse_args()
+    configure_logging(parsed_args.verbose)
+    Config(parsed_args.config_path)
+    main(parsed_args)

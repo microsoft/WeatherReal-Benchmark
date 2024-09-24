@@ -1,7 +1,10 @@
 import numpy as np
 import xarray as xr
 from .time_series import _time_series_comparison
-from .utils import CONFIG, quality_control_statistics
+from .utils import get_config, quality_control_statistics
+
+
+CONFIG = get_config()
 
 
 def _select_neighbouring_stations(similarity, stn_data, lat, lon, data, max_dist, max_elev_diff, min_data_overlap):

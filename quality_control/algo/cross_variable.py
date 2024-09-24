@@ -1,6 +1,9 @@
 import numpy as np
 import xarray as xr
-from .utils import CONFIG
+from .utils import get_config
+
+
+CONFIG = get_config()
 
 
 def supersaturation(t, td):
@@ -11,9 +14,9 @@ def supersaturation(t, td):
 
 
 def wind_consistency(ws, wd):
-    zero_ws = (ws == 0)
-    zero_wd = (wd == 0)
-    inconsistent = (zero_ws != zero_wd)
+    zero_ws = ws == 0
+    zero_wd = wd == 0
+    inconsistent = zero_ws != zero_wd
     flag = xr.where(inconsistent, CONFIG["flag_error"], CONFIG["flag_normal"])
     isnan = np.isnan(ws) | np.isnan(wd)
     flag = flag.where(~isnan, CONFIG["flag_missing"])

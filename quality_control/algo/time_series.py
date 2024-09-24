@@ -1,6 +1,9 @@
 import numpy as np
 from scipy import stats
-from .utils import CONFIG
+from .utils import get_config
+
+
+CONFIG = get_config()
 
 
 def _get_mean_and_mad(values):
@@ -112,7 +115,7 @@ def _time_series_comparison(
         diff_shifted = ts1 - np.roll(ts2, shift)
         if shift == 0:
             continue
-        elif shift > 0:
+        if shift > 0:
             diff_shifted[:shift] = np.nan
         elif shift < 0:
             diff_shifted[shift:] = np.nan

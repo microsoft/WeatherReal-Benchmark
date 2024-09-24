@@ -1,6 +1,9 @@
 import xarray as xr
-from .utils import CONFIG, intra_station_check, quality_control_statistics
+from .utils import get_config, intra_station_check, quality_control_statistics
 from .time_series import _time_series_comparison
+
+
+CONFIG = get_config()
 
 
 def _distributional_gap(

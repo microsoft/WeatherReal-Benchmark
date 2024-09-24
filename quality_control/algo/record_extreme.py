@@ -1,5 +1,8 @@
 import numpy as np
-from .utils import CONFIG, intra_station_check, quality_control_statistics
+from .utils import get_config, intra_station_check, quality_control_statistics
+
+
+CONFIG = get_config()
 
 
 def _record_extreme_main(ts, upper, lower):

@@ -1,6 +1,9 @@
 import numpy as np
 import bottleneck as bn
-from .utils import CONFIG, intra_station_check, quality_control_statistics
+from .utils import get_config, intra_station_check, quality_control_statistics
+
+
+CONFIG = get_config()
 
 
 def _persistence_main(ts, unset_flag, min_num, max_window, min_var, error_length, exclude_value=None):
@@ -61,8 +64,7 @@ def _persistence_main(ts, unset_flag, min_num, max_window, min_var, error_length
         return flag
 
     # trim the NaNs at both ends of each window
-    for idx in range(len(suspect_windows)):
-        start, end = suspect_windows[idx]
+    for idx, (start, end) in enumerate(suspect_windows):
         start = start + np.argmax(isvalid[start:end])
         end = end - np.argmax(isvalid[start:end][::-1])
         suspect_windows[idx] = (start, end)

@@ -8,22 +8,60 @@ import yaml
 logger = logging.getLogger(__name__)
 
 
-def config_loader(config_path):
-    global CONFIG
-    with open(config_path, "r") as file:
-        CONFIG = yaml.safe_load(file)
-    return CONFIG
+def configure_logging(verbose=1):
+    verbose_levels = {
+        0: logging.WARNING,
+        1: logging.INFO,
+        2: logging.DEBUG,
+        3: logging.NOTSET
+    }
+    if verbose not in verbose_levels:
+        verbose = 1
+    root_logger = logging.getLogger()
+    root_logger.setLevel(verbose_levels[verbose])
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter(
+        "[%(asctime)s] [PID=%(process)d] "
+        "[%(levelname)s %(filename)s:%(lineno)d] %(message)s"))
+    handler.setLevel(verbose_levels[verbose])
+    root_logger.addHandler(handler)
 
 
-CONFIG = config_loader(os.path.dirname(os.path.realpath(__file__)) + "/config.yaml")
+class Config:
+    _instance = None
+
+    def __new__(cls, config_path=None):
+        if cls._instance is None:
+            if config_path is None:
+                config_path = os.path.join(os.path.dirname(__file__), "config.yaml")
+            cls._instance = super(Config, cls).__new__(cls)
+            cls._instance.__init__(config_path)
+        return cls._instance
+
+    def __init__(self, config_path):
+        if not hasattr(self, 'config'):
+            self._load_config(config_path)
+
+    def _load_config(self, config_path):
+        with open(config_path, "r", encoding="utf-8") as file:
+            self.config = yaml.safe_load(file)
+
+    def get(self, key):
+        if key not in self.config:
+            raise KeyError(f"Key '{key}' not found in configuration")
+        return self.config[key]
+
+
+def get_config(config_path=None):
+    return Config(config_path).config
 
 
 def intra_station_check(
     *dataarrays,
     qc_func=lambda da: da,
-    input_core_dims=[["time"]],
-    output_core_dims=[["time"]],
-    kwargs=dict(),
+    input_core_dims=None,
+    output_core_dims=None,
+    kwargs=None,
 ):
     """
     A wrapper function to apply the quality control functions to each station in a DataArray
@@ -45,6 +83,12 @@ def intra_station_check(
             )
         else:
             dataarrays_chunked.append(item)
+    if input_core_dims is None:
+        input_core_dims = [["time"]]
+    if output_core_dims is None:
+        output_core_dims = [["time"]]
+    if kwargs is None:
+        kwargs = {}
     flag = xr.apply_ufunc(
         qc_func,
         *dataarrays_chunked,
@@ -58,12 +102,17 @@ def intra_station_check(
     return flag
 
 
-def merge_flags(flags, priority=["normal", "suspect", "error"]):
+CONFIG = get_config()
+
+
+def merge_flags(flags, priority=None):
     """
     Merge flags from different quality control functions in the order of priority
     Prior flags will be overwritten by subsequent flags
     """
     ret = xr.full_like(flags[0], CONFIG["flag_missing"], dtype=np.int8)
+    if priority is None:
+        priority = ["normal", "suspect", "error"]
     for flag_type in priority:
         for item in flags:
             ret = xr.where(item == CONFIG[f"flag_{flag_type}"], CONFIG[f"flag_{flag_type}"], ret)
@@ -79,26 +128,9 @@ def quality_control_statistics(data, flag):
     logger.debug(f"{num_valid / data.size:.5%} of the data are valid")
     logger.debug(f"{num_checked / num_valid:.5%} of the valid data are checked")
     logger.debug(
-        f"{num_normal / num_checked:.5%}/{num_suspect / num_checked:.5%}/{num_error / num_checked:.5%} " +
-        "of the checked data are flagged as normal/suspect/erroneous"
+        "%s/%s/%s of the checked data are flagged as normal/suspect/erroneous",
+        f"{num_normal / num_checked:.5%}",
+        f"{num_suspect / num_checked:.5%}",
+        f"{num_error / num_checked:.5%}"
     )
     return num_valid, num_normal, num_suspect, num_error
-
-
-def configure_logging(verbose=1):
-    verbose_levels = {
-        0: logging.WARNING,
-        1: logging.INFO,
-        2: logging.DEBUG,
-        3: logging.NOTSET
-    }
-    if verbose not in verbose_levels.keys():
-        verbose = 1
-    logger = logging.getLogger()
-    logger.setLevel(verbose_levels[verbose])
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter(
-        "[%(asctime)s] [PID=%(process)d] "
-        "[%(levelname)s %(filename)s:%(lineno)d] %(message)s"))
-    handler.setLevel(verbose_levels[verbose])
-    logger.addHandler(handler)

@@ -16,6 +16,7 @@ from functools import partial
 import pandas as pd
 from tqdm import tqdm
 
+
 # Quality code for erroneous values flagged by ISD
 # To collect as much data as possible and avoid some values flagged by unknown codes being excluded,
 # We choose the strategy "only values marked with known error tags will be rejected"
@@ -199,8 +200,8 @@ def parse_single_precipitation_col(data, col):
     # Rename the columns according to the period, e.g., 03 -> ra3
     datacol.columns = [f"ra{item.lstrip('0')}" for item in datacol.columns]
     # Further split the remaining sections
-    for col in datacol.columns:
-        datacol[[col, f"{col}_cond", f"{col}_qc"]] = datacol[col].str.split(",", expand=True)
+    for var in datacol.columns:
+        datacol[[var, f"{var}_cond", f"{var}_qc"]] = datacol[var].str.split(",", expand=True)
     return datacol
 
 
@@ -277,7 +278,7 @@ def parse_single_file(fpath, fpath_last_year):
     data = parse_sea_level_pressure_col(data)
     data = parse_precipitation_col(data)
 
-    data = data.rename(columns=dict(DATE="time"))
+    data = data.rename(columns={"DATE": "time"})
     value_cols = [col for col in data.columns if col != "time"]
     # drop all-NaN rows
     data = data[["time"] + value_cols].sort_values("time").dropna(how="all", subset=value_cols)
@@ -318,7 +319,7 @@ def aggregate_to_hourly(data):
         rows_to_fill = data[["t_new", "td_new"]].isnull().all(axis=1)
         data.loc[rows_to_fill, "td_new"] = data.loc[rows_to_fill, "td"]
 
-        data = data.drop(columns=["t", "td", "t_td"]).rename(columns=dict(t_new="t", td_new="td"))
+        data = data.drop(columns=["t", "td", "t_td"]).rename(columns={"t_new": "t", "td_new": "td"})
 
     data = data.reset_index(drop=True)
     data["time"] = data["time"].dt.round("h")
@@ -377,5 +378,5 @@ if __name__ == "__main__":
     parser.add_argument("-y", "--year", type=int, required=True, help="Target year")
     parser.add_argument("--num-proc", type=int, default=16, help="Number of parallel processes")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing files")
-    args = parser.parse_args()
-    main(args)
+    parsed_args = parser.parse_args()
+    main(parsed_args)

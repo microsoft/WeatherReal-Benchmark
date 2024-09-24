@@ -197,14 +197,13 @@ def merge_pairs(ds1, ds2):
     """
     if len(ds1.data_vars) == 1:
         return ds1.fillna(ds2)
-    else:
-        da1 = ds1.to_array()
-        da2 = ds2.to_array()
-        mask = da1.count(dim="variable") >= da2.count(dim="variable")
-        return xr.where(mask, da1, da2).to_dataset(dim="variable")
+    da1 = ds1.to_array()
+    da2 = ds2.to_array()
+    mask = da1.count(dim="variable") >= da2.count(dim="variable")
+    return xr.where(mask, da1, da2).to_dataset(dim="variable")
 
 
-def merge_stations(ds, meta_simi, main_var, appendant_var=[], meta_simi_th=0.35, data_simi_th=0.7):
+def merge_stations(ds, meta_simi, main_var, appendant_var=None, meta_simi_th=0.35, data_simi_th=0.7):
     """
     For ds, merge stations based on metadata similarity and data similarity
     """
@@ -236,7 +235,7 @@ def merge_stations(ds, meta_simi, main_var, appendant_var=[], meta_simi_th=0.35,
         # Merge stations according to the number of valid data points
         num_valid = ds[main_var].sel(station=merged_stations).notnull().sum(dim="time")
         sorted_stns = num_valid["station"].sortby(num_valid).values
-        variables = [main_var] + appendant_var
+        variables = [main_var] + appendant_var if appendant_var is not None else [main_var]
         stn_data = ds[variables].sel(station=sorted_stns[0])
         for target_stn in sorted_stns[1:]:
             stn_data = merge_pairs(stn_data, ds[variables].sel(station=target_stn))
@@ -260,8 +259,8 @@ def merge_all_variables(data, meta_simi, meta_simi_th=0.35, data_simi_th=0.7):
         "ra1": ["ra3", "ra6", "ra12", "ra24"],
     }
     merged = []
-    for var in variables:
-        ret = merge_stations(data, meta_simi, var, variables[var], meta_simi_th=meta_simi_th, data_simi_th=data_simi_th)
+    for var, app_vars in variables.items():
+        ret = merge_stations(data, meta_simi, var, app_vars, meta_simi_th=meta_simi_th, data_simi_th=data_simi_th)
         merged.append(ret)
     merged = xr.merge(merged).dropna(dim="station", how="all")
     return merged
@@ -316,6 +315,6 @@ if __name__ == "__main__":
     parser.add_argument("--meta-simi-th", type=float, default=0.35, help="Threshold of metadata similarity")
     parser.add_argument("--data-simi-th", type=float, default=0.7, help="Threshold of data similarity")
     parser.add_argument("--verbose", type=int, default=1, help="Verbosity level (int >= 0)")
-    args = parser.parse_args()
-    configure_logging(args.verbose)
-    main(args)
+    parsed_args = parser.parse_args()
+    configure_logging(parsed_args.verbose)
+    main(parsed_args)

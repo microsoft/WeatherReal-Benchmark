@@ -1,7 +1,10 @@
 import numpy as np
 import bottleneck as bn
 import xarray as xr
-from .utils import CONFIG, intra_station_check
+from .utils import get_config, intra_station_check
+
+
+CONFIG = get_config()
 
 
 def _suspect_upgrade(ts_flag):

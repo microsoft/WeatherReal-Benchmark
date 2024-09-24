@@ -1,6 +1,9 @@
 import numpy as np
 import bottleneck as bn
-from .utils import CONFIG, intra_station_check, quality_control_statistics
+from .utils import get_config, intra_station_check, quality_control_statistics
+
+
+CONFIG = get_config()
 
 
 def _spike_check_forward(ts, unset_flag, max_change):
@@ -89,12 +92,10 @@ def _spike_check_forward(ts, unset_flag, max_change):
                     if cur_idx - start_idx <= 4:
                         break
                     # Else, it is not considered as a spike
-                    else:
-                        cur_idx = start_idx - 1
-                        break
+                    cur_idx = start_idx - 1
+                    break
                 continue
-            else:
-                num_nan = 0
+            num_nan = 0
 
             isabrupt = np.abs(ts[cur_idx] - lastv) > max_change[num_nan]
             isopposite = (lastv - ts[cur_idx]) * change_sign < 0
@@ -106,19 +107,16 @@ def _spike_check_forward(ts, unset_flag, max_change):
                     break
                 # if there is no abrupt change, and the value is still far from the original value
                 # continue searching for the end of the spike
-                else:
-                    lastv = ts[cur_idx]
-                    cur_idx += 1
-                    continue
+                lastv = ts[cur_idx]
+                cur_idx += 1
+                continue
             # if there is an abrupt change, stop searching
-            else:
-                # If the value goes back with an opposite abrupt change, it is considered as the end of the spike
-                if isopposite and isnear:
-                    break
-                # Else, skip this case to avoid too complex situations
-                else:
-                    cur_idx = start_idx - 1
-                    break
+            # If the value goes back with an opposite abrupt change, it is considered as the end of the spike
+            if isopposite and isnear:
+                break
+            # Else, skip this case to avoid too complex situations
+            cur_idx = start_idx - 1
+            break
         else:
             cur_idx = start_idx - 1
         # Only flag the spike as erroneous when all the values are at least suspect

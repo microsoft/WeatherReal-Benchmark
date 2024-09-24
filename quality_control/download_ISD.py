@@ -24,18 +24,15 @@ logger = logging.getLogger(__name__)
 
 
 def download_file(station, url, output_dir, overwrite=False):
-    response = requests.get(url + f"{station}.csv")
+    response = requests.get(url + f"{station}.csv", timeout=30)
     output_path = Path(output_dir) / f"{station}.csv"
-
     if output_path.exists() and not overwrite:
         return True
-
     if response.status_code == 200:
         with open(output_path, "wb") as file:
             file.write(response.content)
         return True
-    else:
-        return False
+    return False
 
 
 def download_ISD(year, station_list, output_dir, num_proc, overwrite=False):
@@ -73,7 +70,7 @@ def main():
     args = parser.parse_args()
     configure_logging(args.verbose)
 
-    response = requests.get(URL_DATA + f"/{args.year}/")
+    response = requests.get(URL_DATA + f"/{args.year}/", timeout=30)
     soup = BeautifulSoup(response.text, "html.parser")
     file_list = [link.get("href") for link in soup.find_all("a") if link.get("href").endswith(".csv")]
     station_list = [item.split(".")[0] for item in file_list]

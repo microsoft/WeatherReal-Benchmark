@@ -1,6 +1,9 @@
 import numpy as np
 from sklearn.cluster import DBSCAN
-from .utils import CONFIG, intra_station_check, quality_control_statistics
+from .utils import intra_station_check, quality_control_statistics, get_config
+
+
+CONFIG = get_config()
 
 
 def _cluster_check(ts, reanalysis, min_samples_ratio, eps_scale, max_std_scale=None, min_num=None):
@@ -58,7 +61,7 @@ def _cluster_check(ts, reanalysis, min_samples_ratio, eps_scale, max_std_scale=N
     # If there is more than one cluster, select the cluster nearest to the reanalysis
     else:
         cluster_labels = np.unique(labels)
-        cluster_labels = [item for item in cluster_labels >= 0]
+        cluster_labels = list(cluster_labels >= 0)
         best_cluster = 0
         min_median = np.inf
         for label in cluster_labels:

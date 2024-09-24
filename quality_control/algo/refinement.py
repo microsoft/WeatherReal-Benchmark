@@ -1,5 +1,8 @@
 import numpy as np
-from .utils import CONFIG, intra_station_check
+from .utils import get_config, intra_station_check
+
+
+CONFIG = get_config()
 
 
 def _is_monotonic(ts, start_idx, end_idx):
@@ -85,20 +88,19 @@ def _refine_flag(cur_flag, ts, check_monotonic, check_ridge_trough):
                 num_nan += 1
                 cur_idx += 1
                 continue
-            elif cur_flag[cur_idx] == CONFIG["flag_error"]:
+            if cur_flag[cur_idx] == CONFIG["flag_error"]:
                 num_nan = 0
                 num_error += 1
                 cur_idx += 1
                 continue
             # If a non-error value is found, check if it is monotonic
-            else:
-                if num_error > 3:
-                    break
-                if check_monotonic and _is_monotonic(ts, idx, cur_idx):
-                    new_flag[idx:cur_idx] = CONFIG["flag_suspect"]
-                if check_ridge_trough and _is_ridge_or_trough(ts, idx, cur_idx):
-                    new_flag[idx:cur_idx] = CONFIG["flag_suspect"]
+            if num_error > 3:
                 break
+            if check_monotonic and _is_monotonic(ts, idx, cur_idx):
+                new_flag[idx:cur_idx] = CONFIG["flag_suspect"]
+            if check_ridge_trough and _is_ridge_or_trough(ts, idx, cur_idx):
+                new_flag[idx:cur_idx] = CONFIG["flag_suspect"]
+            break
     new_flag[np.isnan(ts)] = CONFIG["flag_missing"]
     return new_flag
 
@@ -110,9 +112,9 @@ def run(da, flag, varname):
         qc_func=_refine_flag,
         input_core_dims=[["time"], ["time"]],
         output_core_dims=[["time"]],
-        kwargs=dict(
-            check_monotonic=CONFIG["refinement"][varname]["check_monotonic"],
-            check_ridge_trough=CONFIG["refinement"][varname]["check_ridge_trough"]
-        ),
+        kwargs={
+            "check_monotonic": CONFIG["refinement"][varname]["check_monotonic"],
+            "check_ridge_trough": CONFIG["refinement"][varname]["check_ridge_trough"]
+        },
     )
     return flag.rename("refinement")
