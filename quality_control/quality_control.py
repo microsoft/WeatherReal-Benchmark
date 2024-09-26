@@ -1,6 +1,36 @@
+"""
+This script performs quality control checks on weather observation data using various algorithms.
+It flags and filters out erroneous or suspicious data points.
+
+Usage:
+    python quality_control.py --obs-path OBS_PATH --rnl-path RNL_PATH --similarity-path SIM_PATH \
+    --output-path OUTPUT_PATH [--config-path CONFIG_PATH] [--verbose VERBOSE]
+
+Input Files:
+    - Observation data (--obs-path): NetCDF file generated at the previous step by `station_merging.py`.
+        You can also use your own observation data. The dimension should be 'station' and 'time' and
+        include all the hours in a same year,
+        e.g., the dimension of WeatherReal-ISD in 2023: {'station': 13297, 'time': 8760}
+        Supported variables: t, td, sp, msl, c, ws, wd, ra1, ra3, ra6, ra12, ra24.
+    - Reanalysis data (--rnl-path): NetCDF file containing reanalysis data in the same format as obs.
+        You can refer to `interpolate_from_grid_to_station` in `./algo/utils.py` to interpolate grid data to stations.
+    - Similarity matrix (--similarity-path): File containing station similarity information.
+        It is also generated at the previous step by `station_merging.py`.
+        You can also generate your own similarity matrix with `calc_similarity` in `station_merging.py`.
+    - Config file (--config-path): YAML file containing algorithm parameters.
+        You can refer to the default settings - `config.yaml` in the `algo` directory as an example.
+Output:
+    - Quality controlled observation data (--output-path): NetCDF file with erroneous data removed.
+
+Please refer to the WeatherReal paper for more details.
+"""
+
+
 import argparse
 import logging
+import os
 import numpy as np
+import pandas as pd
 import xarray as xr
 from algo import (
     record_extreme,
@@ -12,7 +42,7 @@ from algo import (
     cross_variable,
     refinement,
     diurnal_cycle,
-    suspect_upgrade,
+    fine_tuning,
 )
 from algo.utils import merge_flags, Config, get_config, configure_logging
 
@@ -28,6 +58,16 @@ def load_data(obs_path, rnl_path):
     """
     logger.info("Loading observation and reanalysis data")
     obs = xr.load_dataset(obs_path)
+    year = obs["time"].dt.year.values[0]
+    if not (obs["time"].dt.year == year).all():
+        raise ValueError("Data contains multiple years, which is not supported yet")
+
+    full_hours = pd.date_range(
+        start=pd.Timestamp(f"{year}-01-01"), end=pd.Timestamp(f"{year}-12-31 23:00:00"), freq='h')
+    if obs["time"].size != full_hours.size or (obs["time"] != full_hours).any():
+        logger.warning("Reindexing observation data to match full hours in the year")
+        obs = obs.reindex(time=full_hours)
+
     # Please prepare the Reanalysis data in the same format as obs
     rnl = xr.load_dataset(rnl_path)
     if obs.sizes != rnl.sizes:
@@ -36,7 +76,7 @@ def load_data(obs_path, rnl_path):
 
 
 def cross_variable_check(obs):
-    flag_cross = {}
+    flag_cross = xr.Dataset()
     # Super-saturation check
     flag_cross["t"] = cross_variable.supersaturation(obs["t"], obs["td"])
     flag_cross["td"] = flag_cross["t"].copy()
@@ -54,17 +94,17 @@ def quality_control(obs, rnl, f_similarity):
     result = obs.copy()
 
     # Record extreme check
-    flag_extreme = {}
+    flag_extreme = xr.Dataset()
     for varname in CONFIG["record"]:
         if varname not in varlist:
             continue
         logger.info(f"Record extreme check for {varname}...")
         flag_extreme[varname] = record_extreme.run(result[varname], varname)
         # For extreme value check, outliers are directly removed
-        result[varname] = result[varname].where(flag_extreme != CONFIG["flag_error"])
+        result[varname] = result[varname].where(flag_extreme[varname] != CONFIG["flag_error"])
 
     # Cluster deviation check
-    flag_cluster = {}
+    flag_cluster = xr.Dataset()
     for varname in CONFIG["cluster"]:
         if varname not in varlist:
             continue
@@ -72,7 +112,7 @@ def quality_control(obs, rnl, f_similarity):
         flag_cluster[varname] = cluster.run(result[varname], rnl[varname], varname)
 
     # Distributional gap check
-    flag_distribution = {}
+    flag_distribution = xr.Dataset()
     for varname in CONFIG["distribution"]:
         if varname not in varlist:
             continue
@@ -82,7 +122,7 @@ def quality_control(obs, rnl, f_similarity):
         flag_distribution[varname] = distributional_gap.run(result[varname], rnl[varname], varname, mask)
 
     # Neighbouring station check
-    flag_neighbour = {}
+    flag_neighbour = xr.Dataset()
     for varname in CONFIG["neighbouring"]:
         if varname not in varlist:
             continue
@@ -90,8 +130,8 @@ def quality_control(obs, rnl, f_similarity):
         flag_neighbour[varname] = neighbouring_stations.run(result[varname], f_similarity, varname)
 
     # Spike check
-    flag_dis_neigh = {}
-    flag_spike = {}
+    flag_dis_neigh = xr.Dataset()
+    flag_spike = xr.Dataset()
     for varname in CONFIG["spike"]:
         if varname not in varlist:
             continue
@@ -103,7 +143,7 @@ def quality_control(obs, rnl, f_similarity):
         flag_spike[varname] = spike.run(result[varname], flag_dis_neigh[varname], varname)
 
     # Persistence check
-    flag_persistence = {}
+    flag_persistence = xr.Dataset()
     for varname in CONFIG["persistence"]:
         if varname not in varlist:
             continue
@@ -119,7 +159,7 @@ def quality_control(obs, rnl, f_similarity):
     flag_cross = cross_variable_check(result)
 
     # Merge all flags
-    flags = {}
+    flags = xr.Dataset()
     for varname in varlist:
         logger.info(f"Merging flags for {varname}...")
         merge_list = [
@@ -130,7 +170,7 @@ def quality_control(obs, rnl, f_similarity):
         flags[varname] = merge_flags(merge_list, priority=["normal", "suspect", "error"])
 
     # Flag refinement
-    flags_refined = {}
+    flags_refined = xr.Dataset()
     for varname in varlist:
         if varname not in CONFIG["refinement"].keys():
             flags_refined[varname] = flags[varname].copy()
@@ -140,20 +180,37 @@ def quality_control(obs, rnl, f_similarity):
         if varname == "t":
             flags_refined[varname] = diurnal_cycle.run(result[varname], flags_refined[varname])
 
-    # Suspect upgrade
-    flags_upgraded = {}
+    # Fine-tuning the flags
+    flags_final = xr.Dataset()
     for varname in varlist:
-        logger.info(f"Upgrade suspect flags for {varname}...")
-        flags_upgraded[varname] = suspect_upgrade.run(flags_refined[varname], obs[varname])
+        logger.info(f"Fine-tuning (upgrade suspect) flags for {varname}...")
+        flags_final[varname] = fine_tuning.run(flags_refined[varname], obs[varname])
 
-    return flags_upgraded
+    flags = {
+        "flag_extreme": flag_extreme,
+        "flag_cluster": flag_cluster,
+        "flag_distribution": flag_distribution,
+        "flag_neighbour": flag_neighbour,
+        "flag_spike": flag_spike,
+        "flag_persistence": flag_persistence,
+        "flag_cross": flag_cross,
+        "flags_refined": flags_refined,
+        "flags_final": flags_final,
+    }
+
+    return flags
 
 
 def main(args):
     obs, rnl = load_data(args.obs_path, args.rnl_path)
     flags = quality_control(obs, rnl, args.similarity_path)
+    if args.output_flags_dir:
+        logger.info(f"Saving flags to {args.output_flags_dir}")
+        for algo_name, flag_spec in flags.items():
+            flag_spec.to_netcdf(os.path.join(args.output_flags_dir, f"{algo_name}.nc"))
+    flags_final = flags["flags_final"]
     for varname in obs.data_vars.keys():
-        obs[varname] = obs[varname].where(flags[varname] != CONFIG["flag_error"])
+        obs[varname] = obs[varname].where(flags_final[varname] != CONFIG["flag_error"])
     obs.to_netcdf(args.output_path)
     logger.info(f"Quality control finished. The results are saved to {args.output_path}")
 
@@ -168,6 +225,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--similarity-path", type=str, required=True, help="Data path of similarity matrix")
     parser.add_argument("--output-path", type=str, required=True, help="Data path of output data")
+    parser.add_argument("--output-flags-dir", type=str, help="If specified, flags will also be saved")
     parser.add_argument(
         "--config-path", type=str, help="Path to the configuration file, default is config.yaml in the algo directory"
     )

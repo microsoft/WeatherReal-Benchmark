@@ -103,4 +103,4 @@ def run(flag, da):
     flag = intra_station_check(flag, qc_func=_suspect_upgrade)
     flag = _upgrade_flags_window(flag, da)
     flag = _upgrade_flags_all(flag, da)
-    return flag.rename("suspect_upgrade")
+    return flag.rename("fine_tuning")

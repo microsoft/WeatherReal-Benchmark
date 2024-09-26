@@ -36,7 +36,7 @@ def ra_consistency(ds):
     flag : numpy.ndarray
         1D array with the same length as ts, containing flags for each value.
     """
-    flag = xr.full_like(ds, 0, dtype=np.int8)
+    flag = xr.full_like(ds, CONFIG["flag_normal"], dtype=np.int8)
     periods = [3, 6, 12, 24]
     for period in periods:
         da_longer = ds[f"ra{period}"]
@@ -54,5 +54,5 @@ def ra_consistency(ds):
                     continue
                 flag[f"ra{target_period}"].values[flag_indices] = 1
                 flag[f"ra{period}"].values[(flag_indices[0], flag_indices[1]+shift)] = 1
-    flag = flag.where(ds.notnull(), -1)
+    flag = flag.where(ds.notnull(), CONFIG["flag_missing"])
     return flag
