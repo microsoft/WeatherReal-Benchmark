@@ -13,7 +13,7 @@ Input Files:
         e.g., the dimension of WeatherReal-ISD in 2023: {'station': 13297, 'time': 8760}
         Supported variables: t, td, sp, msl, c, ws, wd, ra1, ra3, ra6, ra12, ra24.
     - Reanalysis data (--rnl-path): NetCDF file containing reanalysis data in the same format as obs.
-        You can refer to `interpolate_from_grid_to_station` in `./algo/utils.py` to interpolate grid data to stations.
+        You can refer to `convert_grid_to_point` in `evaluation/forecast_reformat_catalog.py` to interpolations.
     - Similarity matrix (--similarity-path): File containing station similarity information.
         It is also generated at the previous step by `station_merging.py`.
         You can also generate your own similarity matrix with `calc_similarity` in `station_merging.py`.

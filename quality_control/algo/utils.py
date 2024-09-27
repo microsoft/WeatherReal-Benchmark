@@ -3,11 +3,6 @@ import os
 import numpy as np
 import xarray as xr
 import yaml
-try:
-    import xesmf as xe
-    XESMF_AVAILABLE = True
-except ImportError:
-    XESMF_AVAILABLE = False
 
 
 logger = logging.getLogger(__name__)
@@ -139,17 +134,3 @@ def quality_control_statistics(data, flag):
         f"{num_error / num_checked:.5%}"
     )
     return num_valid, num_normal, num_suspect, num_error
-
-
-def interpolate_from_grid_to_station(grid, station):
-    """
-    Interpolate data from a grid to stations
-    """
-    if not XESMF_AVAILABLE:
-        raise ImportError("xesmf is required for interpolation.")
-
-    if "latitude" in grid.dims:
-        grid = grid.rename({"latitude": "lat", "longitude": "lon"})
-    regridder = xe.Regridder(grid, station, "bilinear", locstream_out=True, periodic=True)
-    grid = regridder(grid, keep_attrs=True)
-    return grid
