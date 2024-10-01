@@ -1,11 +1,11 @@
-# WeatherReal: An observation benchmark for weather forecasting
+# WeatherReal: A Benchmark Based on In-Situ Observations for Evaluating Weather Models
 
 Welcome to the official GitHub repository and leaderboard page for the WeatherReal weather forecasting benchmark!
 This repository includes code for running the evaluation of weather forecasting models on the WeatherReal benchmark dataset, 
 as well as links to the LFS storage for the data files.
 If you would like to contribute a model evaluation result to this page, please open an Issue with the tag "Submission".
 If you use this repository or its data, please cite the following:
- - WeatherReal: An observation benchmark for weather forecasting, [arXiv link coming soon]
+ - [WeatherReal](https://arxiv.org/html/2409.09371): A Benchmark Based on In-Situ Observations for Evaluating Weather Models
  - Synoptic Data (for the Synoptic data used in the benchmark)
  - [NCEI ISD database](https://journals.ametsoc.org/view/journals/bams/92/6/2011bams3015_1.xml)
 
